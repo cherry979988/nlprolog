@@ -21,7 +21,7 @@ with open(sys.argv[1] + '.json') as f:
 train_env = QAEnv(config['data'], rules=config['rules'], evaluate=False)
 dev_env = QAEnv(config['data'], rules=config['rules'], evaluate=True)
 model = Sent2Vec(train_env, config)
-model.load(config['model_path'])
+model.load(config['model_path'].replace('.json',''))
 model.eval()
 pool = PoolPredictor(config['data'], N_WORKERS, config)
 infos = pool.predict(model, list(range(len(dev_env))), use_dev=True)

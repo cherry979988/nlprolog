@@ -1,6 +1,6 @@
 {
         "type": "Sent2Vec",
-        "embeddings": "sent2vec_wiki_unigrams.bin",
+        "embeddings": "wiki_unigrams.bin",
         "pred_dim": 600,
         "ent_dim": 600,
         "model_path": "",
