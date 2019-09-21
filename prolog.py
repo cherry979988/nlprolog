@@ -47,6 +47,10 @@ def query(facts, similarity, goal, entity_tnorm, predicate_tnorm, min_depth, min
                     results.append( [float(split[0]), int(split[1]), '', ''] )
                 else:
                     results.append( [float(split[0]), int(split[1]), b' '.join(split[3:]).decode(), split[2].decode()] )
+
+            if len(results) == 0:
+                print(facts, similarity, goal)
+
             return results
         except ValueError:
             raise RuntimeError(result.stderr)
@@ -54,12 +58,12 @@ def query(facts, similarity, goal, entity_tnorm, predicate_tnorm, min_depth, min
 
 
 class Program:
-    def __init__(self, facts, rules, candidates):
+    def __init__(self, facts, re_facts, rules, candidates):
         self.entity_to_id = None
         self.relation_to_id = None
         self.variable_to_id = None
         self.symbol_to_id = None
-        self.build_vocabs(facts, rules, candidates)
+        self.build_vocabs(facts, re_facts, rules, candidates)
         self.id_to_entity = {v: k for k, v in self.entity_to_id.items()}
         self.id_to_relation = {v: k for k, v in self.relation_to_id.items()}
         self.id_to_variable = {v: k for k, v in self.variable_to_id.items()}
@@ -67,6 +71,7 @@ class Program:
         self.rule_unifications = None
           
         self.facts = self.transform_triples(facts)
+        self.re_facts = self.transform_quadruples(re_facts)
         self.rules = self.transform_rules(rules)
         self.candidates = self.transform_triples(candidates, symbol=True)
         self.lambda_cut = 0.5
@@ -83,7 +88,7 @@ class Program:
         self.symbol_similarity = symbol
         self.predicate_similarity = predicate
 
-    def build_vocabs(self, facts, rules, candidates):
+    def build_vocabs(self, facts, re_facts, rules, candidates):
         self.entity_to_id = {}
         self.relation_to_id = {}
         self.variable_to_id = {}
@@ -95,7 +100,7 @@ class Program:
             rule_triples.update([tuple(t) for t in rule['antecedents']])
         rule_triples = list(rule_triples)
 
-        for triple in rule_triples :
+        for triple in rule_triples:
             for entity in (triple[0], triple[2]):
                 if entity.isupper():
                     if entity not in self.variable_to_id:
@@ -115,6 +120,14 @@ class Program:
                 if entity not in self.entity_to_id:
                     self.entity_to_id[entity] = len(self.entity_to_id)
 
+        for quadruple in re_facts:
+            symbol = quadruple[1]
+            if symbol not in self.symbol_to_id:
+                self.symbol_to_id[symbol] = len(self.symbol_to_id)
+            for entity in (quadruple[0], quadruple[2]):
+                if entity not in self.entity_to_id:
+                    self.entity_to_id[entity] = len(self.entity_to_id)
+
         for triple in facts:
             for entity in (triple[0], triple[2]):
                 if entity not in self.entity_to_id:
@@ -124,6 +137,13 @@ class Program:
             if relation not in self.relation_to_id:
                 self.relation_to_id[relation] = len(self.relation_to_id)
 
+    def transform_quadruples(self, quadruples):
+        transformed_facts = []
+        for e1, r, e2, score in quadruples:
+            e1 = self.variable_to_id[e1] if e1.isupper() else self.entity_to_id[e1]
+            e2 = self.variable_to_id[e2] if e2.isupper() else self.entity_to_id[e2]
+            transformed_facts.append((e1, self.symbol_to_id[r], e2, score))
+        return transformed_facts
 
     def transform_triples(self, triples, symbol=False):
         transformed_facts = []
@@ -194,6 +214,12 @@ class Program:
         new_facts = defaultdict(float)
         self.fact_unifications = {}
         result = []
+
+        ## add re facts
+        for fact in self.re_facts:
+            new_fact = self.triple_to_prolog(fact[:-1], symbol=True) + '.'
+            new_facts[new_fact] = fact[-1]
+
         for fact in self.facts:
             pred_idx = fact[1]
 
@@ -222,7 +248,7 @@ class Program:
         self.rule_unifications = {}
         result = []
         for rule in self.rules:
-            new_rules[self.rule_to_prolog(rule) + '.'] = 1.0
+            new_rules[self.rule_to_prolog(rule) + '.'] = 1.0  # these rules have confidence 1 ?
             symbol_idx = rule['consequent'][0][1]
 
             # We do not need rules with symbol_predicate_sim because 

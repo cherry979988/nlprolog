@@ -138,9 +138,12 @@ class Sent2Vec(nn.Module):
 
         if self.train_symbol:
             for symbol in self.env.symbol_vocab:
+                # index
                 self.symbol_vocab[symbol] = len(self.symbol_vocab)
+                # get embed from sent2vec with symbol
                 if self.config["semantic_query_init"]:
                         symbol_embedding = self.sent2vec.embed_sentences([" ".join(symbol.split('_'))])
+                # randomly initialized symbol
                 else:
                     symbol_embedding = get_linear((1, self.config["pred_dim"]))
 
@@ -167,6 +170,10 @@ class Sent2Vec(nn.Module):
 
 
     def get_sims(self, obs):
+        '''
+        :param obs: contains predicates, symbols, entities
+        :return: an dict with field 'symbol_predicate_similarity', 'entity_similarity', 'symbol_similarity'
+        '''
         with torch.no_grad():
             if self.train_predicate:
                 predicate_indices = torch.LongTensor([self.predicate_vocab[p] for p in obs['predicates']])
@@ -221,6 +228,8 @@ class Sent2Vec(nn.Module):
         torch.save(self.state_dict(), fname + '.pto')
 
     def load(self, fname):
+        # from the saved model meta seems not to be storing anything... (?)
+
         with open(fname + '.json') as f:
             meta = json.load(f)
 

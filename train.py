@@ -118,7 +118,7 @@ if __name__ == '__main__':
     with open(sys.argv[1]) as f:
         config = json.load(f)
         if len(config["model_path"]) == 0:
-            config["model_path"] = "models/" + os.path.basename(sys.argv[1])
+            config["model_path"] = "models/" + os.path.basename(sys.argv[1]).replace('.json','')
 
     train_env = QAEnv(config["data"], rules=config['rules'])
     train_ids = list(range(len(train_env.data)))
